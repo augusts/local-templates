@@ -15,7 +15,7 @@ resources:
         echo "i am added by heat and cloud-init" >> /root/my_custom_config
         useradd august
         echo "Redhat01" | passwd august --stdin
-        echo "i just added the august user" >> /root/augustuser
+        echo "I just added the august user" >> /root/augustuser
 
   outputs:
     OS::stack_id
