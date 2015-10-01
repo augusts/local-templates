@@ -1,0 +1,23 @@
+heat_template_version: 2014-10-16
+
+resources:
+  userdata:
+    type: OS::Heat::MultipartMime
+    properties: 
+      parts:
+      - config: {get_resource: my_custom_config}
+
+  my_custom_config:
+    type: OS::Heat::SoftwareConfig
+    properties: 
+      config: |
+        #!/bin/bash
+        echo "i am added by heat and cloud-init" >> /root/my_custom_config
+        useradd august
+        echo "Redhat01" | passwd august --stdin
+        echo "i just added the august user" >> /root/augustuser
+
+  outputs:
+    OS::stack_id
+      value: {get_resource: userdata}
+        

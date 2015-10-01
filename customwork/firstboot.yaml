@@ -1,0 +1,2 @@
+resource_registry:
+  OS::TripleO::NodeUserData: my_custom_config.yaml
