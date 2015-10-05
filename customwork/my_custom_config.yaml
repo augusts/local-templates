@@ -16,6 +16,7 @@ resources:
         useradd august
         echo "Redhat01" | passwd august --stdin
         echo "I just added the august user" >> /root/augustuser
+        echo "I just added the august user - hi there august" >> /home/august/augustadded
 
 outputs:
   OS::stack_id:
