@@ -1,0 +1,496 @@
+    1  whoami
+    2  cp /usr/share/instack-undercloud/undercloud.conf.sample ~/undercloud.conf
+    3  ls
+    4  sudo yum -y install openstack-utils
+    5  grep local_ip undercloud.conf 
+    6  openstack-config --set undercloud.conf DEFAULT local_ip 172.16.0.1/24
+    7  grep local_ip undercloud.conf 
+    8  openstack-config --set undercloud.conf DEFAULT undercloud_public_vip  172.16.0.10
+    9  openstack-config --set undercloud.conf DEFAULT undercloud_admin_vip 172.16.0.11
+   10  openstack-config --set undercloud.conf DEFAULT local_interface eth0
+   11  openstack-config --set undercloud.conf DEFAULT masquerade_network 172.16.0.0/24
+   12  openstack-config --set undercloud.conf DEFAULT dhcp_start 172.16.0.20
+   13  openstack-config --set undercloud.conf DEFAULT dhcp_end 172.16.0.120
+   14  openstack-config --set undercloud.conf DEFAULT network_cidr 172.16.0.0/24
+   15  openstack-config --set undercloud.conf DEFAULT network_gateway 172.16.0.1
+   16  openstack-config --set undercloud.conf DEFAULT discovery_iprange 172.16.0.150,172.16.0.180
+   17  egrep -v '^#|^$' undercloud.conf
+   18  exit
+   19  sudo hiera keystone::roles::admin::password
+   20  exit
+   21  openstack undercloud install
+   22  source stackrc 
+   23  openstack catalog show nova
+   24  openstack host list
+   25  cat /etc/os-net-config/config.json | python -m json.tool
+   26  ip a
+   27  cat /etc/os-net-config/config.json | python -m json.tool
+   28  sudo ovs-vsctl show
+   29  cat /etc/sysconfig/network-scripts/ifcfg-br-ctlplane 
+   30  curl -s http://172.16.0.1:9696 | python -m json.tool
+   31  cat /usr/libexec/os-apply-config/templates/etc/ironic-discoverd/dnsmasq.conf 
+   32  systemctl status openstack-ironic-discoverd-dnsmasq.service
+   33  ironic node-list
+   34   head -n3 /etc/httpd/conf.d/10-ipxe_vhost.conf
+   35  neutron subnet-list 
+   36  sudo ip netns list
+   37  netns=$(ip netns list | grep qdhcp)
+   38  sudo ip netns exec $netns netstat -tunpl
+   39   ps ax | egrep 'dnsmasq|18577'
+   40  sudo ovs-vsctl list-ifaces br-int
+   41  exit
+   42  source stackrc 
+   43  exit
+   44  sudo su -
+   45  ls
+   46  mkdir images
+   47  mv *.tar images/
+   48  cd images/
+   49  ls
+   50  tar xvf deploy-ramdisk-ironic.tar
+   51  tar xvf discovery-ramdisk.tar
+   52  tar xvf overcloud-full.tar 
+   53  ls
+   54  openstack overcloud image upload
+   55  source ~/stackrc 
+   56  openstack overcloud image upload
+   57  openstack image list
+   58  ironic driver-list
+   59  cd
+   60  ls
+   61  cat /tmp/nodes.txt 
+   62  jq . << EOF > ~/instackenv.json
+   63  {
+   64    "ssh-user": "stack",
+   65    "ssh-key": "$(cat ~/.ssh/id_rsa)",
+   66    "power_manager": "nova.virt.baremetal.virtual_power_driver.VirtualPowerManager",
+   67    "host-ip": "192.168.122.1",
+   68    "arch": "x86_64",
+   69    "nodes": [
+   70      {
+   71        "pm_addr": "192.168.122.1",
+   72        "pm_password": "$(cat ~/.ssh/id_rsa)",
+   73        "pm_type": "pxe_ssh",
+   74        "mac": [
+   75          "$(sed -n 1p /tmp/nodes.txt)"
+   76        ],
+   77        "cpu": "2",
+   78        "memory": "10240",
+   79        "disk": "40",
+   80        "arch": "x86_64",
+   81        "pm_user": "stack"
+   82      },
+   83      {
+   84        "pm_addr": "192.168.122.1",
+   85        "pm_password": "$(cat ~/.ssh/id_rsa)",
+   86        "pm_type": "pxe_ssh",
+   87        "mac": [
+   88          "$(sed -n 2p /tmp/nodes.txt)"
+   89        ],
+   90        "cpu": "2",
+   91        "memory": "10240",
+   92        "disk": "40",
+   93        "arch": "x86_64",
+   94        "pm_user": "stack"
+   95      }
+   96    ]
+   97  }
+   98  EOF
+   99  vi instackenv.json 
+  100  curl -O https://raw.githubusercontent.com/rthallisey/clapper/master/instackenv-validator.py
+  101  ls -lh /httpboot/discoverd.ipxe 
+  102  cp /httpboot/discoverd.ipxe /tmp/
+  103  python instackenv-validator.py -f instackenv.json
+  104  ironic node-list
+  105  openstack baremetal import --json instackenv.json 
+  106  ironic node-list
+  107   openstack baremetal list
+  108  openstack baremetal configure boot
+  109  ironic node-show 550e9793-e9ad-4115-9b88-09bca9bdc882 | grep -A1 deploy
+  110  openstack image show  61880867-e50e-405c-aa92-aae31a019ab0
+  111  cat /usr/bin/bootif-fix
+  112  cat << EOF > /usr/bin/bootif-fix
+  113  while true;
+  114          do find /httpboot/ -type f ! -iname "kernel" ! -iname "ramdisk" ! -iname "*.kernel" ! -iname "*.ramdisk" -exec sed -i 's|{mac|{net0/mac|g' {} +;
+  115  done
+  116  EOF
+  117  sudo su -
+  118  source stackrc 
+  119  openstack baremetal introspection bulk start
+  120  ironic node-list
+  121  openstack baremetal introspection bulk start
+  122  sudo su -
+  123  neutron subnet-list
+  124  subnet_id=$(neutron subnet-list | awk '/172.16.0.0/ {print $2;}')
+  125  neutron subnet-update $subnet_id --dns-nameserver 192.168.122.1
+  126  openstack flavor create --id auto --ram 10240 --disk 58 --vcpus 2 baremetal
+  127  openstack flavor set --property "cpu_arch"="x86_64" --property "capabilities:boot_option"="local" baremetal
+  128  cp -R /usr/share/openstack-tripleo-heat-templates .
+  129  ls
+  130  mv openstack-tripleo-heat-templates local-templates
+  131  ls
+  132  history | grep deploy
+  133  openstack overcloud deploy --templates local-templates --ntp-server 0.rhel.pool.ntp.org --control-scale 1 --compute-scale 1 --neutron-tunnel-types vxlan --neutron-network-type vxlan --libvirt-type kvm
+  134  heat stack-list
+  135  ironic node-list
+  136  heat stack-delete
+  137  heat stack-delete overcloud
+  138  ironic node-list
+  139  heat stack-delete overcloud
+  140  heat stack-list
+  141  ironic node-list
+  142  openstack baremetal introspection bulk start
+  143  openstack overcloud deploy --templates local-templates --ntp-server 0.rhel.pool.ntp.org --control-scale 1 --compute-scale 1 --neutron-tunnel-types vxlan --neutron-network-type vxlan 
+  144  cat instackenv.json 
+  145  source overcloudrc 
+  146  openstack compute service list
+  147  source stackrc 
+  148  nova list --fields name,networks
+  149  nova list --fields name,networks,hosts
+  150  nova list --fields name,networks,host
+  151  ssh heat-admin@172.16.0.29
+  152  scp -oStrictHostKeyChecking=no ~/overcloudrc heat-admin@172.16.0.29:~
+  153  ssh heat-admin@172.16.0.29
+  154  exit
+  155  sudo journalctl -l -u openstack-ironic-discoverd     -u openstack-ironic-discoverd-dnsmasq -f
+  156  source stackrc 
+  157  heat resource-list -n5 overcloud
+  158  heat stack-list
+  159  heat stack-list --show-nested
+  160  heat event-list -n2 overcloud
+  161  heat resource-list -n5 overcloud
+  162  heat stack-list --show-nested
+  163  ls -lh /httpboot/
+  164  rpm -qf /httpboot/boot.ipxe 
+  165  cat /httpboot/boot.ipxe 
+  166  ls -l /httpboot/boot.ipxe 
+  167  sudo su -
+  168  source stackrc 
+  169  heat resource-list -n5 overcloud
+  170  w
+  171  heat resource-list -n5 overcloud
+  172  neutron net-list
+  173   net_id=$(neutron net-list | grep 172.16.0.0 | awk '{print $2;}')
+  174  cat /var/lib/neutron/dhcp/$net_id/opts 
+  175  neutron port-show b12ff556-9fff-429f-b446-2113a8967eea
+  176  cat /etc/os-net-config/config.json | python -m json.tool
+  177  poweroff
+  178  exit
+  179  source stackrc 
+  180  w
+  181  top
+  182  cat /proc/cpuinfo 
+  183  w
+  184  ls
+  185  less local-templates/overcloud-without-mergepy.yaml 
+  186  cd local-templates/
+  187  grep -A20 parameters overcloud-without-mergepy.yaml | head -n20
+  188  grep -A20 "Controller:" overcloud-without-mergepy.yaml | head -n15
+  189  vi overcloud-resource-registry-puppet.yaml 
+  190  less puppet/controller-puppet.yaml 
+  191   grep -A10 "OS::Nova::Server" puppet/controller-puppet.yaml 
+  192  exit
+  193  history |grep ssh
+  194  ssh heat-admin@172.16.0.29
+  195  sudo -i
+  196  source stackrc 
+  197  ironic node-list
+  198  ironic node-set-power-state 550e9793-e9ad-4115-9b88-09bca9bdc882 on
+  199  ironic node-set-power-state e7aaad2e-5b54-4003-89d7-62ec77e6d4da on
+  200  ironic node-list
+  201  sudo vi /etc/ironic/ironic.conf 
+  202  grep pybasedir /etc/ironic/
+  203  grep pybasedir /etc/ironic/*
+  204  sudo grep -Ri pybasedir /etc/ironic/*
+  205  ls -l /usr/lib/pyth
+  206  sudo -i
+  207  source stackrc 
+  208  nova lisy
+  209  ssh heat-admin@cnova list
+  210  nova list
+  211  ssh heat-admin@172.16.0.29
+  212  heat stack-list
+  213  cd local-templates/customwork/
+  214  ls
+  215  vi my_custom_config.yaml 
+  216  vim my_custom_config.yaml 
+  217  git add .
+  218  git diff
+  219  pwd
+  220  ls
+  221  cd ..
+  222  git status
+  223  git commit
+  224  git push
+  225  heat stack-list
+  226  history | grep heat
+  227  heat stack-list --show-nested
+  228  history | grep heat
+  229  heat resource-list -n5 overcloud
+  230  w
+  231  heat stack-list --show-nested
+  232  heat stack-list 
+  233  git status
+  234  pwd
+  235  ls .git/
+  236  pwd
+  237  exit
+  238  w
+  239  source stackrc 
+  240  nova list
+  241  ssh heat-admin@172.16.0.29
+  242  nova list
+  243  ssh heat-admin@172.16.0.29
+  244  ironic node-list
+  245  heat stack-list 
+  246  ironic node-set-power-state e7aaad2e-5b54-4003-89d7-62ec77e6d4da on
+  247  ironic node-list
+  248  ironic node-set-power-state d1a73381-07d3-40d0-bff8-fc710ede44a3 on
+  249  ironic node-set-power-state 550e9793-e9ad-4115-9b88-09bca9bdc882 on
+  250  nova list
+  251  ironic node-list
+  252  nova --help
+  253  nova --help|grep help
+  254  nova --help|grep start
+  255  nova list
+  256  nova start 28ac2c66-069c-4d6b-b90e-4b8dc38de8d2
+  257  nova list
+  258  ironic node-list
+  259  nova list
+  260  ironic node-list
+  261  ssh heat-admin@172.16.0.29
+  262  nova list
+  263  nova start overcloud-compute-0
+  264  ironic node-list
+  265  nova list
+  266  ssh heat-admin@172.16.0.29
+  267  source stackrc 
+  268  ironic node-list | grep -v UUID | awk ' { print $2 } '
+  269  ironic node-list
+  270  heat stack-delete overcloud
+  271  ironic node-list
+  272  history |grep heat
+  273  heat resource-list -n5 overcloud
+  274  heat stack-list
+  275  pwd
+  276  ls
+  277  pwd
+  278  mkdir oldcloud-20151001-a
+  279  mv overcloudrc oldcloud-20151001-a/
+  280  mv tripleo-overcloud-passwords oldcloud-20151001-a/
+  281  ls
+  282  cat instackenv.json 
+  283  ls
+  284  cat overcloud-env.json 
+  285  ls
+  286  mv overcloud-env.json oldcloud-20151001-a/
+  287  ls
+  288  ls images/
+  289  ls
+  290  cd
+  291  ls
+  292  cd local-templates/
+  293  ls
+  294  cd network/
+  295  ls
+  296  cd ..
+  297  ls
+  298  pwd
+  299  ls
+  300  mkdir customwork
+  301  cd customwork/
+  302  vim
+  303  sudo yum install vim =y
+  304  sudo yum install vim -y
+  305  cd ..
+  306  ls
+  307  grep -RI "NodeUserData" *
+  308  pwd
+  309  ls
+  310  cd ..
+  311  ls
+  312  pwd
+  313  git
+  314  ls
+  315  cat .ssh/id_rsa.pub 
+  316  pwd
+  317  ls
+  318  cd local-templates/
+  319  ls
+  320  cd ..
+  321  mv local-templates local-templates.nogit
+  322  ls
+  323  git clone https://github.com/augusts/local-templates.git
+  324  ls
+  325  cd local-templates
+  326  ls
+  327  cp -R ../local-templates.nogit/ .
+  328  ls
+  329  ls local-templates.nogit/
+  330  cd ..
+  331  ls
+  332  cd local-templates
+  333  rm -rf local-templates.nogit/
+  334  cp -R ../local-templates.nogit/* .
+  335  ls
+  336  git add .
+  337  git diff
+  338  ls
+  339  git status
+  340  git commit
+  341  git config --global user.email "augustsimonelli@yahoo.com"
+  342  git config --global user.name "augusts"
+  343  git commit
+  344  git push
+  345  ls
+  346  cd customwork/
+  347  ls
+  348  vim nameserver.yaml
+  349  pwd
+  350  ls
+  351  vim cat nameserver.yaml 
+  352  cat nameserver.yaml 
+  353  mv nameserver.yaml my_custom_config.yaml
+  354  vim firstboot.yaml
+  355  cd ..
+  356  ls
+  357  cd ..
+  358  ls
+  359  cd local-templates
+  360  ls
+  361  git add customwork/*
+  362  git status
+  363  git commit
+  364  git push
+  365  git config --global push.default simple
+  366  cd customwork/
+  367  ls
+  368  vim my_custom_config.yaml 
+  369  git commit
+  370  git add .
+  371  git commit
+  372  git push
+  373  cd ..
+  374  ls
+  375  cd ..
+  376  ls
+  377  history | grep deploy
+  378  openstack overcloud deploy --templates local-templates --ntp-server 0.rhel.pool.ntp.org --control-scale 1 --compute-scale 1 --neutron-tunnel-types vxlan --neutron-network-type vxlan --libvirt-type kvm -e local-templates/customwork/firstboot.yaml 
+  379  heat stack-delete undercloud
+  380  heat stack-delete overcloud
+  381  heat stack-list
+  382  poweroff
+  383  sudo poweroff
+  384  source stackrc 
+  385  ironic node-list
+  386  exit
+  387  history | grep heat
+  388  heat resource-list -n5 overcloud
+  389  source stackrc 
+  390  heat resource-list -n5 overcloud
+  391  cd /var/log/heat/
+  392  ls
+  393  sudo -i
+  394  source stackrc 
+  395  heat resource-list -n5 overcloud
+  396  sudo -i
+  397  exit
+  398  date
+  399  source stackrc 
+  400  nova list
+  401  ironic node-list
+  402  ls
+  403  cd local-templates
+  404  ls
+  405  git status
+  406  ls
+  407  cd customwork/
+  408  ls
+  409  vim firstboot.yaml 
+  410  pwd
+  411  vim firstboot.yaml 
+  412  ls
+  413  vim my_custom_config.yaml 
+  414  ls
+  415  git status
+  416  cat firstboot.yaml 
+  417  git add .
+  418  git status
+  419  git commit
+  420  git push
+  421  cd 
+  422  ls
+  423  history | grep deploy
+  424  openstack overcloud deploy --templates local-templates --ntp-server 0.rhel.pool.ntp.org --control-scale 1 --compute-scale 1 --neutron-tunnel-types vxlan --neutron-network-type vxlan -e local-templates/customwork/firstboot.yaml 
+  425  heat stack-list
+  426  heat stack-delete overcloud
+  427  heat stack-list
+  428  ironic node-list
+  429  history | grep deploy
+  430  openstack overcloud deploy --templates local-templates --ntp-server 0.rhel.pool.ntp.org --control-scale 1 --compute-scale 1 --neutron-tunnel-types vxlan --neutron-network-type vxlan
+  431  source stackrc 
+  432  ironic node-list
+  433  nova list
+  434  ssh heat-admin@172.16.0.42
+  435  ssh heat-admin@172.16.0.41
+  436  heat stack-list
+  437  history | grep stack
+  438   heat stack-list --show-nested
+  439  heat stack-list
+  440  history |grep heat
+  441  heat resource-list -n5 overcloud-ComputeNodesPostDeployment-dfgq3dyihzp3-ExtraConfig-5yfuiccnakey
+  442  heat resource-list -n5 overcloud-ControllerNodesPostDeployment-mn5urpsk2ttp
+  443  heat resource-list -n5 ControllerOvercloudServicesDeployment_Step6
+  444  heat --help | grep resource
+  445  heat resouce-show ControllerOvercloudServicesDeployment_Step6
+  446  heat resource-show ControllerOvercloudServicesDeployment_Step6
+  447  heat resource-list -n5 ControllerOvercloudServicesDeployment_Step6
+  448  heat stack-list
+  449   heat stack-list --show-nested
+  450   heat stack-list overcloud-ControllerNodesPostDeployment-mn5urpsk2ttp-ControllerOvercloudServicesDeployment_Step6-i2xqhfr367ej --show-nested
+  451  heat stack-list --help
+  452   heat stack-list --show-nested
+  453  heat resource-list overcloud-ControllerNodesPostDeployment-mn5urpsk2ttp-ControllerOvercloudServicesDeployment_Step6-i2xqhfr367ej
+  454  heat resource-list -n5 overcloud-ControllerNodesPostDeployment-mn5urpsk2ttp-ControllerOvercloudServicesDeployment_Step6-i2xqhfr367ej
+  455  heat resource-list -n5 ControllerOvercloudServicesDeployment_Step6
+  456  heat resource-list -n5 overcloud-ControllerNodesPostDeployment-mn5urpsk2ttp-ControllerOvercloudServicesDeployment_Step6-i2xqhfr367ej
+  457  heat --help | grep resource
+  458  heat resource-show
+  459  heat resource-show 0 371b7817-4c1b-41ea-9e73-d58680ce5725
+  460  heat resource-show 371b7817-4c1b-41ea-9e73-d58680ce5725
+  461  heat resource-list -n5 overcloud-ControllerNodesPostDeployment-mn5urpsk2ttp-ControllerOvercloudServicesDeployment_Step6-i2xqhfr367ej
+  462  heat resource-list -n5 ControllerOvercloudServicesDeployment_Step6
+  463  heat --help | grep stack
+  464  heat output-show
+  465  heat output-show ControllerOvercloudServicesDeployment_Step6
+  466  heat output-show ControllerOvercloudServicesDeployment_Step6 --all
+  467  heat resource-list -n6 overcloud
+  468  cd local-templates
+  469  ls
+  470  cd customwork/
+  471  ls
+  472  cat firstboot.yaml 
+  473  ls
+  474  cd ..
+  475  vim overcloud-resource-registry-puppet.yaml 
+  476  vim puppet/cinder-storage-puppet.yaml 
+  477  ls
+  478  cd customwork/
+  479  ls
+  480  cat my_custom_config.yaml 
+  481  cat firstboot.yaml 
+  482  vim overcloud-resource-registry-puppet.yaml 
+  483  cd ..
+  484  vim overcloud-resource-registry-puppet.yaml 
+  485  grep -Ri "OS::TripleO::NodeUserData" *
+  486  vim firstboot/userdata_default.yaml 
+  487  ls
+  488  cat customwork/my_custom_config.yaml 
+  489  ls
+  490  grep -Ri GlanceBackend *
+  491  vim environments/puppet-ceph-devel.yaml 
+  492  history 
+  493  cd local-templates
+  494  ls
+  495  cd customwork/
+  496  history > my.history

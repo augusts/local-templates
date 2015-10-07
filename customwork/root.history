@@ -1,0 +1,190 @@
+    1  ls
+    2  cat /etc/yum.repos.d/redhat.repo 
+    3  ip a
+    4  sed -i s/ONBOOT=.*/ONBOOT=no/g /etc/sysconfig/network-scripts/ifcfg-eth0 
+    5  cat << EOF > /etc/sysconfig/network-scripts/ifcfg-eth1
+    6  DEVICE=eth1
+    7  ONBOOT=yes
+    8  IPADDR=192.168.122.253
+    9  NETMASK=255.255.255.0
+   10  GATEWAY=192.168.122.1
+   11  NM_CONTROLLED=no
+   12  DNS1=192.168.122.1
+   13  EOF
+   14  shutdown -h now
+   15  exit
+   16  hostnamectl set-hostname undercloud.redhat.local
+   17  systemctl restart network.service
+   18  yum install facter -y
+   19  ipaddr=$(facter ipaddress_eth1)
+   20  echo $ipaddr 
+   21  echo -e "$ipaddr\t\tundercloud.redhat.local\tundercloud" >> /etc/hosts
+   22  cat /etc/hosts
+   23  grep undercloud /etc/hosts
+   24  yum -y update
+   25  reboot
+   26  uptime
+   27  date
+   28  yum install python-rdomanager-oscplugin -y
+   29  exit
+   30  useradd stack
+   31  echo "Redhat01" | passwd stack --stdin
+   32  echo "stack ALL=(root) NOPASSWD:ALL" | tee -a /etc/sudoers.d/stack
+   33  chmod 0440 /etc/sudoers.d/stack
+   34  su - stack
+   35  exit
+   36  su - stack
+   37  exit
+   38  cd /httpboot/
+   39  ls
+   40  ls -ltrah
+   41  cat discoverd.ipxe 
+   42  cp discoverd.ipxe /root/
+   43  ls
+   44  exit
+   45  ls -la /usr/share/instack-undercloud/puppet-stack-config/
+   46  cd /usr/share/instack-undercloud/puppet-stack-config
+   47  ls
+   48  cd install.d/
+   49  ls
+   50  cat 02-puppet-stack-config 
+   51  ls -l
+   52  less 10-puppet-stack-config-puppet-module 
+   53  ls
+   54  w
+   55  top 
+   56  pwd
+   57  cd ..
+   58  cd os-refresh-config/
+   59  ls
+   60  cd configure.d/
+   61  ls
+   62  cat 50-puppet-stack-config 
+   63  pwd
+   64  cd ..
+   65  ls
+   66  cd post-configure.d/
+   67  ls
+   68  cat 10-tftp-iptables 
+   69  pwd
+   70  grep -A25 os_net_config /var/lib/heat-cfntools/cfn-init-data
+   71  pwd
+   72  cd ..
+   73  ls
+   74  cd install.d/
+   75  ls
+   76  vi 02-puppet-stack-config 
+   77  ls
+   78  cd ..
+   79  ls
+   80  car element-deps 
+   81  cat element-deps 
+   82  less puppet-stack-config.yaml.template 
+   83  less  /etc/puppet/hieradata/puppet-stack-config.yaml 
+   84  sudo hiera keystone::roles::admin::password
+   85  su - stack
+   86  ls
+   87  cd install.d/
+   88  ls
+   89  less /etc/puppet/manifests/puppet-stack-config.pp 
+   90  cat /etc/puppet/manifests/puppet-stack-config.pp|wc -l
+   91  less /etc/puppet/manifests/puppet-stack-config.pp 
+   92  cd /usr/share/instack-undercloud/puppet-stack-config/os-refresh-config/
+   93  ls
+   94  w
+   95  pwd
+   96  ls
+   97  pwd
+   98  cat /var/lib/heat-cfntools/cfn-init-data 
+   99  cd  /usr/libexec/os-apply-config/templates/
+  100  ls
+  101  tree
+  102  yum install tree
+  103  tree
+  104  cd root/
+  105  ls
+  106  cat stackrc
+  107  cd ..
+  108  ls
+  109  cd ..
+  110  ls
+  111  pwd
+  112  less /var/lib/heat-cfntools/cfn-init-data 
+  113  cat << EOF > /usr/bin/bootif-fix
+  114  while true;
+  115          do find /httpboot/ -type f ! -iname "kernel" ! -iname "ramdisk" ! -iname "*.kernel" ! -iname "*.ramdisk" -exec sed -i 's|{mac|{net0/mac|g' {} +;
+  116  done
+  117  EOF
+  118  ls -lh /httpboot/
+  119  chmod a+x /usr/bin/bootif-fix
+  120  cat << EOF > /usr/lib/systemd/system/bootif-fix.service
+  121  [Unit]
+  122  Description=Automated fix for incorrect iPXE BOOFIF
+  123  [Service]
+  124  Type=simple
+  125  ExecStart=/usr/bin/bootif-fix
+  126  [Install]
+  127  WantedBy=multi-user.target
+  128  EOF
+  129  cat /usr/lib/systemd/system/bootif-fix.service 
+  130  ls -lh /httpboot/
+  131   systemctl daemon-reload
+  132  ls -lh /httpboot/
+  133  date
+  134  yum install ntp
+  135  vi /etc/ntp.conf 
+  136  ntpdate 1.rhel.pool.ntp.org
+  137  date
+  138  ls -lh /httpboot/
+  139  systemctl enable bootif-fix
+  140  cat /httpboot/discoverd.ipxe 
+  141  systemctl start bootif-fix
+  142  cat /httpboot/discoverd.ipxe 
+  143  exit
+  144  openstack-config --set /etc/nova/nova.conf DEFAULT rpc_response_timeout 600
+  145  openstack-config --set /etc/ironic/ironic.conf DEFAULT rpc_response_timeout 600
+  146   openstack-service restart nova
+  147  openstack-service restart ironic
+  148   openstack-service status nova
+  149  exit
+  150  vi /httpboot/boot.ipxe 
+  151  cat /httpboot/boot.ipxe 
+  152  vi /httpboot/boot.ipxe 
+  153  cat /httpboot/boot.ipxe 
+  154  exit
+  155  poweroff
+  156  ls /usr/lib/python/site-packages/ironic
+  157  ls /usr/lib/
+  158  ls /usr/lib/python2.7/site-packages/
+  159  ls /usr/lib/python2.7/site-packages/ironic
+  160  cd /var/log/ironic
+  161  ls
+  162  grep 550e9793-e9ad-4115-9b88-09bca9bdc882 *
+  163  tail -f ironic-conductor.log 
+  164  tail -f *
+  165  date
+  166  tail -f *
+  167  tail -f ironic-conductor.log | grep e7aaad2e-5b54-4003-89d7-62ec77e6d4da
+  168  tail -f ironic-conductor.log 
+  169  exit
+  170  w
+  171  cd /var/log/heat/
+  172  ls
+  173  ls -ltra
+  174  tail -f heat-engine.log 
+  175  cd /var/log/heat/
+  176  ls
+  177  ls -ltra
+  178  tail -f heat-engine.log
+  179  ls
+  180  ls -ltra
+  181  tail -f heat-api.log
+  182  exit
+  183  cd /var/log/ironic
+  184  ls
+  185  ls -ltra
+  186  tail 0f ironic-api.log 
+  187  tail -f ironic-api.log 
+  188  exit
+  189  history 
+  190  history > /home/stack/local-templates/customwork/root.history
